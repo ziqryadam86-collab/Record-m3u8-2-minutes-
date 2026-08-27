@@ -1,0 +1,47 @@
+name: Record Awani HLS (2 Min / 10s Segments)
+
+on:
+  schedule:
+    # Berjalan secara automatik setiap 5 minit
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Membolehkan anda tekan 'Run workflow' secara manual bila-bila masa
+
+jobs:
+  record-and-segment:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Clean and Prepare 'awani' Folder
+        run: |
+          # Padam folder awani jika wujud untuk kosongkan isi lama, kemudian cipta folder baru
+          rm -rf awani
+          mkdir -p awani
+
+      - name: Record 2 Minutes & Generate HLS (10s segments)
+        run: |
+          ffmpeg -y \
+          -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 \
+          -i "https://d2idp3hzkhjpih.cloudfront.net/out/v1/4b85d9c2bf97413eb0c9fd875599b837/index_1.m3u8" \
+          -t 120 \
+          -c copy \
+          -f hls \
+          -hls_time 10 \
+          -hls_playlist_type vod \
+          -hls_segment_filename "awani/segment%d.ts" \
+          awani/index.m3u8
+
+      - name: Upload 'awani' Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: awani-hls-stream
+          path: awani/
+          retention-days: 1
+          
