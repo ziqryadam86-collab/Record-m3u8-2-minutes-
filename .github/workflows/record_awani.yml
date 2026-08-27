@@ -1,14 +1,17 @@
-name: Record Awani HLS (2 Min / 10s Segments)
+name: Record Awani HLS (Auto 5 Mins)
 
 on:
   schedule:
-    # Berjalan secara automatik setiap 5 minit
+    # Berjalan automatik setiap 5 minit
     - cron: '*/5 * * * *'
-  workflow_dispatch: # Membolehkan anda tekan 'Run workflow' secara manual bila-bila masa
+  workflow_dispatch: # Boleh juga tekan butang manual bila-bila masa
 
 jobs:
-  record-and-segment:
+  record-and-push:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Kebenaran untuk kemaskini fail dalam repository
 
     steps:
       - name: Checkout Repository
@@ -19,13 +22,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Clean and Prepare 'awani' Folder
+      - name: Empty and Recreate Awani Folder
         run: |
-          # Padam folder awani jika wujud untuk kosongkan isi lama, kemudian cipta folder baru
           rm -rf awani
           mkdir -p awani
 
-      - name: Record 2 Minutes & Generate HLS (10s segments)
+      - name: Record 2 Minutes Stream
         run: |
           ffmpeg -y \
           -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 \
@@ -38,10 +40,11 @@ jobs:
           -hls_segment_filename "awani/segment%d.ts" \
           awani/index.m3u8
 
-      - name: Upload 'awani' Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: awani-hls-stream
-          path: awani/
-          retention-days: 1
+      - name: Commit and Push Updated Awani Files
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add awani/
+          git commit -m "Auto-update Awani stream segmen [$(date '+%Y-%m-%d %H:%M:%S')]" || exit 0
+          git push
           
