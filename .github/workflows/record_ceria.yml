@@ -1,0 +1,60 @@
+name: Record Astro Ceria (5 mins, 360p, 15fps)
+
+on:
+  schedule:
+    # Jalankan setiap 5 minit
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  record-ceria-5m:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Record 5 Mins Astro Ceria (360p, 15fps, MYT Time)
+        run: |
+          # Tetapkan zon masa kepada Waktu Malaysia (MYT)
+          export TZ='Asia/Kuala_Lumpur'
+          
+          # 1. Dapatkan masa dan tarikh mengikut waktu Malaysia
+          TIME_NOW=$(date +'%I:%M%p' | sed 's/^0//' | tr '[:upper:]' '[:lower:]')
+          DATE_NOW=$(date +'%--d.%--m.%Y')
+          TV_NAME="ceria"
+          
+          # 2. Padam folder lama supaya storan repository tidak bengkak
+          rm -rf "${TV_NAME}"
+          
+          # 3. Cipta struktur folder dinamik: ceria/1:59pm/5.3.2027/
+          TARGET_DIR="${TV_NAME}/${TIME_NOW}/${DATE_NOW}"
+          mkdir -p "${TARGET_DIR}"
+          
+          # 4. Rekod 5 minit (-t 300), tukar ke 360p dan 15fps
+          ffmpeg -y \
+          -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 \
+          -i "https://load.ptv2026.com/rwt.m3u8?username=vip_3klp0es8&password=wg3piwEs&channel=ceria" \
+          -t 300 \
+          -vf "scale=480:360,fps=15" \
+          -c:v libx264 -crf 28 -preset ultrafast \
+          -c:a aac -b:a 64k \
+          "${TARGET_DIR}/${TV_NAME}.mp4"
+
+      - name: Commit and Push to Repository
+        run: |
+          export TZ='Asia/Kuala_Lumpur'
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add ceria/
+          git commit -m "Update Astro Ceria 5-min 360p video (MYT) [$(date '+%Y-%m-%d %H:%M:%S')]" || exit 0
+          git push
+          
